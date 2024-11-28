@@ -112,6 +112,7 @@ class RegistroPontoApp:
                 SELECT colaboradores.id, colaboradores.nome, usuarios.nome AS nome_usuario
                 FROM colaboradores
                 JOIN usuarios ON colaboradores.usuario_id = usuarios.id
+                WHERE usuarios.tipo = 'colaborador'
                 """)
                 colaboradores = cursor.fetchall()
             return jsonify([{"id": colab[0], "nome": colab[1], "usuario_nome": colab[2]} for colab in colaboradores])
@@ -119,18 +120,37 @@ class RegistroPontoApp:
             return jsonify({"error": str(e)}), 500
 
     def listar_registros_por_colaborador(self, colaborador_id):
+        # Captura o parâmetro 'data' da query string
+        data = request.args.get('data', None)
+
+        print('ID do colaborador:', colaborador_id)
+        print('Data da busca:', data)
+
         try:
             with sqlite3.connect("db/registro_ponto.db") as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                SELECT registros.id, registros.hora_registro
-                FROM registros
-                WHERE registros.colaborador_id = ?
-                """, (colaborador_id,))
+                if data:
+                    # Se uma data for fornecida, filtra também por data
+                    cursor.execute("""
+                        SELECT registros.id, registros.hora_registro, registros.data_registro
+                        FROM registros
+                        WHERE registros.colaborador_id = ? AND registros.data_registro = ?
+                    """, (colaborador_id, data))
+                else:
+                    # Se nenhuma data for fornecida, retorna todos os registros do colaborador
+                    cursor.execute("""
+                        SELECT registros.id, registros.hora_registro
+                        FROM registros
+                        WHERE registros.colaborador_id = ?
+                    """, (colaborador_id,))
+                
                 registros = cursor.fetchall()
+
             return jsonify([{"id_registro": reg[0], "hora": reg[1]} for reg in registros])
+
         except sqlite3.Error as e:
             return jsonify({"error": str(e)}), 500
+
 
     def adicionar_colaborador(self):
         data = request.json
