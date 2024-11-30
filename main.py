@@ -155,16 +155,19 @@ class RegistroPontoApp:
     def adicionar_colaborador(self):
         data = request.json
         nome = data.get("nome")
+        print(f"Nome recebido: {nome}")  # Verifique se o nome está sendo recebido corretamente
         senha = generate_password()
 
         try:
             with sqlite3.connect("db/registro_ponto.db", timeout=30) as conn:
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA foreign_keys = ON;")
+                print("Conexão com o banco de dados estabelecida.")  # Log da conexão
                 cursor.execute("INSERT INTO usuarios (nome, senha, tipo) VALUES (?, ?, ?)", (nome, senha, 'colaborador'))
                 usuario_id = cursor.lastrowid
                 cursor.execute("INSERT INTO colaboradores (usuario_id, nome) VALUES (?, ?)", (usuario_id, nome))
                 conn.commit()
+                print(f"Usuário {nome} adicionado com sucesso com ID {usuario_id}.")  # Confirmação
             return jsonify({"message": f"Colaborador {nome} adicionado com sucesso! senha gerada: {senha}"}), 201
         except sqlite3.OperationalError as e:
             print(f"Erro de operação no banco de dados: {e}")
@@ -173,6 +176,7 @@ class RegistroPontoApp:
             print(f"Ocorreu um erro inesperado: {e}")
             print(traceback.format_exc())
             return jsonify({"error": "Ocorreu um erro inesperado. Verifique os logs para mais detalhes."}), 500
+
 
     def remover_colaborador(self, id_colaborador):
         print('removendo colaborador do id: ', id_colaborador)
