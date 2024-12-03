@@ -178,30 +178,30 @@ class RegistroPontoApp:
             print(traceback.format_exc())
             return jsonify({"error": "Ocorreu um erro inesperado. Verifique os logs para mais detalhes."}), 500
 
-    def remover_colaborador(self, colaborador_id):
-        print('removendo colaborador do id: ', colaborador_id)
+    def remover_colaborador(self, id_colaborador):
+        print('removendo colaborador do id: ', id_colaborador)
         try:
             with sqlite3.connect("db/registro_ponto.db") as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT usuario_id FROM colaboradores WHERE id = ?", (colaborador_id,))
+                cursor.execute("SELECT usuario_id FROM colaboradores WHERE id = ?", (id_colaborador,))
                 colaborador = cursor.fetchone()
 
 
                 if colaborador:
                     usuario_id = colaborador[0]
 
-                    cursor.execute("SELECT COUNT(*) FROM registros WHERE colaborador_id = ?", (colaborador_id,))
+                    cursor.execute("SELECT COUNT(*) FROM registros WHERE colaborador_id = ?", (id_colaborador,))
                     
                     registros_count = cursor.fetchone()[0]
 
                     if registros_count > 0:
-                        cursor.execute("DELETE FROM registros WHERE colaborador_id = ?", (colaborador_id,))
+                        cursor.execute("DELETE FROM registros WHERE colaborador_id = ?", (id_colaborador,))
 
-                    cursor.execute("DELETE FROM colaboradores WHERE id = ?", (colaborador_id,))
+                    cursor.execute("DELETE FROM colaboradores WHERE id = ?", (id_colaborador,))
                     cursor.execute("DELETE FROM usuarios WHERE id = ?", (usuario_id,))
                     
                     conn.commit()
-                    return jsonify({"message": f"Colaborador ID {colaborador_id} e usuário removidos com sucesso!"})
+                    return jsonify({"message": f"Colaborador ID {id_colaborador} e usuário removidos com sucesso!"})
                 else:
                     return jsonify({"message": "Colaborador não encontrado!"}), 404
         except sqlite3.Error as e:
@@ -235,7 +235,7 @@ class RegistroPontoApp:
             except sqlite3.Error as e:
                 print("Erro ao atualizar nome do colaborador:", e)
 
-    def atualizar_nome_colaborador(self, colaborador_id):
+    def atualizar_nome_colaborador(self, id_colaborador):
         try:
             # Obter o novo nome do corpo da requisição (JSON)
             dados = request.get_json()
@@ -248,7 +248,7 @@ class RegistroPontoApp:
                 cursor = conn.cursor()
 
                 # Verificar se o colaborador existe e obter o usuario_id
-                cursor.execute("SELECT usuario_id FROM colaboradores WHERE id = ?", (colaborador_id,))
+                cursor.execute("SELECT usuario_id FROM colaboradores WHERE id = ?", (id_colaborador,))
                 colaborador = cursor.fetchone()
 
                 if colaborador:
@@ -258,11 +258,11 @@ class RegistroPontoApp:
                     cursor.execute("UPDATE usuarios SET nome = ? WHERE id = ?", (novo_nome, usuario_id))
 
                     # Atualizar o nome na tabela 'colaboradores' (se necessário)
-                    cursor.execute("UPDATE colaboradores SET nome = ? WHERE id = ?", (novo_nome, colaborador_id))
+                    cursor.execute("UPDATE colaboradores SET nome = ? WHERE id = ?", (novo_nome, id_colaborador))
 
                     conn.commit()
 
-                    return jsonify({"message": f"Nome do colaborador ID {colaborador_id} atualizado para '{novo_nome}' com sucesso!"})
+                    return jsonify({"message": f"Nome do colaborador ID {id_colaborador} atualizado para '{novo_nome}' com sucesso!"})
                 else:
                     return jsonify({"error": "Colaborador não encontrado."}), 404
         except sqlite3.Error as e:
@@ -312,7 +312,6 @@ class RegistroPontoApp:
             return jsonify({"error": str(e)}), 500
         except Exception as e:
             return jsonify({"error": "Erro inesperado: " + str(e)}), 500
-        
 
 if __name__ == "__main__":
     app = RegistroPontoApp()
