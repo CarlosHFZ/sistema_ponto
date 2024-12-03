@@ -40,6 +40,12 @@ cursor.execute("INSERT INTO usuarios (nome, senha, tipo) VALUES (?, ?, ?)", ('ad
 usuario_id = cursor.lastrowid
 cursor.execute("INSERT INTO colaboradores (usuario_id, nome) VALUES (?, ?)", (usuario_id, 'admin'))
 
+cursor.execute("INSERT INTO usuarios (nome, senha, tipo) VALUES (?, ?, ?)", ('colaborador', '123', 'colaborador'))
+usuario_id = cursor.lastrowid
+cursor.execute("INSERT INTO colaboradores (usuario_id, nome) VALUES (?, ?)", (usuario_id, 'colaborador'))
+
+
+
 print("Banco de dados configurado com sucesso!")
 conn.commit()
 conn.close()
