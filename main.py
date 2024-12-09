@@ -24,7 +24,8 @@ class RegistroPontoApp:
         self.app.add_url_rule("/colaboradores", methods=["POST"], view_func=self.adicionar_colaborador)
         self.app.add_url_rule("/colaboradores/<int:id_colaborador>", methods=["DELETE"], view_func=self.remover_colaborador)
         self.app.add_url_rule("/colaboradores/<int:id_colaborador>", methods=["PUT"], view_func=self.atualizar_nome_colaborador)
-        self.app.add_url_rule("/registros/<int:colaborador_id>", methods=["PUT"], view_func=self.atualizar_registro)
+        self.app.add_url_rule("/registros/<string:hora>", methods=["PUT"], view_func=self.atualizar_registro_por_horario)
+        self.app.add_url_rule("/registros/<string:hora>", methods=["DELETE"], view_func=self.excluir_registro_por_horario)
 
     def login(self):
         data = request.json
@@ -243,48 +244,106 @@ class RegistroPontoApp:
         except Exception as e:
             return jsonify({"error": "Erro inesperado: " + str(e)}), 500
 
-    def atualizar_registro(self, colaborador_id):
+    def atualizar_registro_por_horario(self, hora):
         try:
-            # Obter os dados do corpo da requisição (JSON)
+            # Obtém os dados do JSON na requisição
             dados = request.get_json()
-            data = dados.get("data")  # Data do registro (formato esperado: YYYY-MM-DD)
-            novo_registro = dados.get("registro")  # Novo horário do registro (formato esperado: HH:MM:SS)
+            data = dados.get("data")
+            novo_horario = dados.get("registro")
+            
+            print(f"Dados recebidos: {dados}")
+            print(f"Hora atual (URL): {hora}, Data: {data}, Novo horário: {novo_horario}")
 
-            # Verificar se os dados necessários foram fornecidos
-            if not data or not novo_registro:
+            if not data or not novo_horario:
                 return jsonify({"error": "Os campos 'data' e 'registro' são obrigatórios."}), 400
 
             with sqlite3.connect("db/registro_ponto.db") as conn:
                 cursor = conn.cursor()
 
-                # Verificar se o colaborador existe
-                cursor.execute("SELECT id FROM colaboradores WHERE id = ?", (colaborador_id,))
-                colaborador = cursor.fetchone()
+                # Verifica se existe o registro com o horário fornecido
+                print(f"Executando consulta: SELECT id FROM registros WHERE hora_registro = ? AND data_registro = ?")
+                cursor.execute("""
+                    SELECT id FROM registros WHERE hora_registro = ? AND data_registro = ?
+                """, (hora, data))
+                registro = cursor.fetchone()
 
-                if colaborador:
-                    # Atualizar o registro no banco de dados
-                    cursor.execute(
-                        """
+                if registro:
+                    print(f"Registro encontrado: {registro}")
+                else:
+                    print("Nenhum registro encontrado.")
+
+                if not registro:
+                    return jsonify({"message": "Registro não encontrado"}), 404
+
+                # Tenta atualizar o registro
+                try:
+                    print(f"Executando a atualização com novo horário: {novo_horario}")
+                    cursor.execute("""
                         UPDATE registros
-                        SET registro = ?
-                        WHERE colaborador_id = ? AND DATE(registro) = DATE(?)
-                        """,
-                        (novo_registro, colaborador_id, data)
-                    )
+                        SET hora_registro = ?
+                        WHERE hora_registro = ? AND data_registro = ?
+                    """, (novo_horario, hora, data))
 
-                    # Confirmar a alteração
+                    # Verifica o número de linhas afetadas
+                    rows_affected = cursor.rowcount
+                    print(f"Linhas afetadas pela atualização: {rows_affected}")
+                    if rows_affected == 0:
+                        print("Nenhuma linha foi atualizada.")
+                    else:
+                        print(f"Atualização bem-sucedida para {rows_affected} linha(s).")
+
+                    # Commit da transação
                     conn.commit()
 
-                    if cursor.rowcount > 0:
-                        return jsonify({"message": f"Registro do colaborador ID {colaborador_id} atualizado com sucesso!"})
-                    else:
-                        return jsonify({"error": "Registro não encontrado para a data especificada."}), 404
+                except sqlite3.Error as e:
+                    print(f"Erro ao tentar atualizar o registro: {e}")
+                    return jsonify({"error": str(e)}), 500
+
+                return jsonify({"message": "Registro atualizado com sucesso"}), 200
+
+        except sqlite3.Error as e:
+            print(f"Erro no banco de dados: {e}")
+            return jsonify({"error": f"Erro no banco de dados: {str(e)}"}), 500
+        except Exception as e:
+            print(f"Erro inesperado: {e}")
+            return jsonify({"error": f"Erro inesperado: {str(e)}"}), 500
+
+
+
+
+    def excluir_registro_por_horario(self, hora):
+        try:
+            # Captura a data da query string (opcional, mas pode ser útil para especificar melhor o registro)
+            data = request.args.get('data', None)
+
+            with sqlite3.connect("db/registro_ponto.db") as conn:
+                cursor = conn.cursor()
+
+                # Se a data for fornecida, utiliza-a no filtro
+                if data:
+                    cursor.execute("""
+                        SELECT id FROM registros WHERE hora_registro = ? AND data_registro = ?
+                    """, (hora, data))
                 else:
-                    return jsonify({"error": "Colaborador não encontrado."}), 404
+                    cursor.execute("""
+                        SELECT id FROM registros WHERE hora_registro = ?
+                    """, (hora,))
+                registro = cursor.fetchone()
+
+                if not registro:
+                    return jsonify({"message": "Registro não encontrado"}), 404
+
+                # Exclui o registro
+                cursor.execute("""
+                    DELETE FROM registros WHERE id = ?
+                """, (registro[0],))
+                conn.commit()
+
+                return jsonify({"message": "Registro excluído com sucesso"}), 200
         except sqlite3.Error as e:
             return jsonify({"error": str(e)}), 500
         except Exception as e:
-            return jsonify({"error": "Erro inesperado: " + str(e)}), 500
+            return jsonify({"error": f"Erro inesperado: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
